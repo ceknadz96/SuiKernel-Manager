@@ -18,128 +18,89 @@
 
 package kanagawa.yamada.suikernel.manager
 
-import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kanagawa.yamada.suikernel.manager.ui.theme.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
 
-enum class ModuleStatus {
-    DOWNLOAD,
-    UPDATE,
-    INSTALLED,
-    REBOOT
+enum class HostPlatform {
+    GITHUB,
+    GITLAB
 }
 
 data class RecomendedModuleItem(
-    val id: String = "",
     val title: String,
     val author: String,
     val repo: String,
-    val platform: HostPlatform = HostPlatform.GITHUB,
-    val version: String = "",
-    val latestVersion: String = "",
-    val downloadUrl: String = "",
-    val status: ModuleStatus = ModuleStatus.DOWNLOAD,
-    val isBusy: Boolean = false,
-    val progressText: String = "",
-    val downloadProgress: Float = 0f
+    val platform: HostPlatform = HostPlatform.GITHUB
 )
 
 @Composable
 fun RecomendedModulesScreen(onNavigateBack: () -> Unit = {}) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    var consoleOutput by remember { mutableStateOf<String?>(null) }
-    var isInstalling by remember { mutableStateOf(false) }
-    var downloadProgress by remember { mutableStateOf<Float?>(null) }
-    var downloadProgressText by remember { mutableStateOf<String?>(null) }
-    var isKsudAvailable by remember { mutableStateOf(true) }
-    var isKsudChecked by remember { mutableStateOf(false) }
     var isVanillaKernel by remember { mutableStateOf(false) }
 
-    val moduleDefs = remember {
+    val allModules = remember {
         listOf(
-            DefinitionItem(
+            RecomendedModuleItem(
                 title = "Brene SUSFS",
                 author = "rrr333nnn333",
                 repo = "rrr333nnn333/BRENE",
                 platform = HostPlatform.GITHUB
             ),
-            DefinitionItem(
+            RecomendedModuleItem(
                 title = "BreZygisk",
                 author = "rrr333nnn333",
                 repo = "rrr333nnn333/BreZygisk",
                 platform = HostPlatform.GITHUB
             ),
-            DefinitionItem(
+            RecomendedModuleItem(
                 title = "BreWheel",
                 author = "rrr333nnn333",
                 repo = "rrr333nnn333/BreWheel",
                 platform = HostPlatform.GITHUB
             ),
-            DefinitionItem(
+            RecomendedModuleItem(
                 title = "Vector",
                 author = "JingMatrix",
                 repo = "JingMatrix/Vector",
                 platform = HostPlatform.GITHUB
             ),
-            DefinitionItem(
+            RecomendedModuleItem(
                 title = "HMA OSS",
                 author = "frknkrc44",
                 repo = "frknkrc44/HMA-OSS",
                 platform = HostPlatform.GITHUB
             ),
-            DefinitionItem(
+            RecomendedModuleItem(
                 title = "Always Strong",
                 author = "Evokerr",
                 repo = "Evokerr/AlwaysStrong",
                 platform = HostPlatform.GITLAB
             ),
-            DefinitionItem(
+            RecomendedModuleItem(
                 title = "NoMount",
                 author = "maxsteeel",
                 repo = "maxsteeel/nomount",
@@ -148,225 +109,63 @@ fun RecomendedModulesScreen(onNavigateBack: () -> Unit = {}) {
         )
     }
 
-    var modulesState by remember {
-        mutableStateOf(
-            moduleDefs.map { def ->
-                val cachedVer = getCachedModuleVersion(context, def.repo)
-                val cachedUrl = getCachedModuleDownloadUrl(context, def.repo)
-                RecomendedModuleItem(
-                    title = def.title,
-                    author = def.author,
-                    repo = def.repo,
-                    platform = def.platform,
-                    version = cachedVer,
-                    latestVersion = cachedVer,
-                    downloadUrl = cachedUrl,
-                    status = ModuleStatus.DOWNLOAD
-                )
-            }
-        )
-    }
-
-    var isCheckingUpdates by remember { mutableStateOf(false) }
-
-    fun loadLocalModules() {
-        coroutineScope.launch(Dispatchers.IO) {
-            val ksudPath = SuiKernelIoctl.runCommandWithOutput("which ksud").firstOrNull()?.trim()
-            val ksudOk = !ksudPath.isNullOrEmpty()
-            val versionStr = SuiKernelIoctl.readProcVersion() ?: SuiKernelIoctl.runCommandWithOutput("cat /proc/version").firstOrNull() ?: ""
-            val vanilla = versionStr.contains("Vanilla", ignoreCase = true)
-
-            withContext(Dispatchers.Main) {
-                isKsudAvailable = ksudOk
-                isVanillaKernel = vanilla
-                isKsudChecked = true
-                if (vanilla) {
-                    modulesState = modulesState.filterNot {
-                        it.title.equals("Brene SUSFS", ignoreCase = true) || it.repo.contains("BRENE", ignoreCase = true)
-                    }
-                }
-            }
-
-            if (!ksudOk) {
-                return@launch
-            }
-
-            val pendingReboot = getPendingRebootRepos(context)
-
-            // Fast local check: query installed modules via root & match with cached metadata
-            val installedList = fetchInstalledModules()
-            val baseList = if (vanilla) {
-                modulesState.filterNot { it.title.equals("Brene SUSFS", ignoreCase = true) || it.repo.contains("BRENE", ignoreCase = true) }
-            } else {
-                modulesState
-            }
-            val localChecked = baseList.map { item ->
-                val installed = findInstalledModule(installedList, item.title, item.author, item.repo)
-                if (installed != null) {
-                    val cachedLatestVer = getCachedModuleVersion(context, item.repo)
-                    val cachedDownloadUrl = getCachedModuleDownloadUrl(context, item.repo)
-                    val status = when {
-                        pendingReboot.contains(item.repo) -> ModuleStatus.REBOOT
-                        cachedLatestVer.isNotBlank() && isNewerVersion(cachedLatestVer, installed.version, installed.versionCode) -> ModuleStatus.UPDATE
-                        else -> ModuleStatus.INSTALLED
-                    }
-                    item.copy(
-                        id = installed.id,
-                        version = installed.version,
-                        latestVersion = cachedLatestVer.ifBlank { installed.version },
-                        downloadUrl = cachedDownloadUrl.ifBlank { item.downloadUrl },
-                        status = status,
-                        isBusy = false,
-                        progressText = "",
-                        downloadProgress = 0f
-                    )
-                } else {
-                    val cachedVer = getCachedModuleVersion(context, item.repo).ifBlank { item.version }
-                    val cachedDownloadUrl = getCachedModuleDownloadUrl(context, item.repo)
-                    item.copy(
-                        version = cachedVer,
-                        latestVersion = cachedVer.ifBlank { item.latestVersion },
-                        downloadUrl = cachedDownloadUrl.ifBlank { item.downloadUrl },
-                        status = ModuleStatus.DOWNLOAD,
-                        isBusy = false,
-                        progressText = "",
-                        downloadProgress = 0f
-                    )
-                }
-            }
-
-            withContext(Dispatchers.Main) {
-                modulesState = localChecked
-            }
-        }
-    }
-
-    fun checkForRemoteUpdates(isManual: Boolean = true) {
-        if (isCheckingUpdates || !isKsudAvailable) return
-        isCheckingUpdates = true
-
-        coroutineScope.launch(Dispatchers.IO) {
-            val pendingReboot = getPendingRebootRepos(context)
-            val installedList = fetchInstalledModules()
-
-            val targetModules = if (isVanillaKernel) {
-                modulesState.filterNot { it.title.equals("Brene SUSFS", ignoreCase = true) || it.repo.contains("BRENE", ignoreCase = true) }
-            } else {
-                modulesState
-            }
-
-            // Run remote checks in PARALLEL using async/awaitAll for blazing fast updates
-            val updateDeferreds = targetModules.map { item ->
-                async {
-                    val installed = findInstalledModule(installedList, item.title, item.author, item.repo)
-                    val effectiveUpdateJson = installed?.updateJson?.ifBlank { null }
-
-                    val (latestTag, downloadUrl) = fetchLatestRelease(item.repo, item.platform, effectiveUpdateJson)
-                    
-                    val latest = if (latestTag.isNotBlank()) {
-                        saveCachedModuleInfo(context, item.repo, latestTag, downloadUrl)
-                        latestTag
-                    } else {
-                        item.latestVersion.ifBlank { getCachedModuleVersion(context, item.repo) }
-                    }
-
-                    val effectiveDownloadUrl = if (downloadUrl.isNotBlank()) {
-                        downloadUrl
-                    } else {
-                        item.downloadUrl.ifBlank { getCachedModuleDownloadUrl(context, item.repo) }
-                    }
-
-                    val displayVersion = installed?.version ?: latest
-
-                    val status = when {
-                        pendingReboot.contains(item.repo) -> ModuleStatus.REBOOT
-                        installed == null -> ModuleStatus.DOWNLOAD
-                        latest.isNotBlank() && isNewerVersion(latest, installed.version, installed.versionCode) -> ModuleStatus.UPDATE
-                        else -> ModuleStatus.INSTALLED
-                    }
-
-                    item.copy(
-                        id = installed?.id ?: item.id,
-                        version = displayVersion,
-                        latestVersion = latest,
-                        downloadUrl = effectiveDownloadUrl,
-                        status = status,
-                        isBusy = false,
-                        progressText = ""
-                    )
-                }
-            }
-
-            val updated = updateDeferreds.awaitAll()
-            setLastUpdateCheckTime(context)
-
-            withContext(Dispatchers.Main) {
-                modulesState = updated
-                isCheckingUpdates = false
-                if (isManual) {
-                    val updatesCount = updated.count { it.status == ModuleStatus.UPDATE }
-                    try {
-                        if (updatesCount > 0) {
-                            Toast.makeText(context.applicationContext, "$updatesCount update${if (updatesCount > 1) "s" else ""} available", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context.applicationContext, "All modules are up to date", Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: Throwable) {
-                        // Ignore Toast errors
-                    }
-                }
-            }
-        }
-    }
-
     LaunchedEffect(Unit) {
-        loadLocalModules()
+        val versionStr = SuiKernelIoctl.readProcVersion() ?: ""
+        isVanillaKernel = versionStr.contains("Vanilla", ignoreCase = true)
     }
 
-    BackHandler(onBack = {
-        if (consoleOutput != null && !isInstalling) {
-            consoleOutput = null
-            downloadProgress = null
-            downloadProgressText = null
-            modulesState = modulesState.map { it.copy(isBusy = false, progressText = "", downloadProgress = 0f) }
-            loadLocalModules()
-        } else if (!isInstalling) {
-            onNavigateBack()
+    val displayModules = remember(isVanillaKernel) {
+        if (isVanillaKernel) {
+            allModules.filterNot { it.title.equals("Brene SUSFS", ignoreCase = true) || it.repo.contains("BRENE", ignoreCase = true) }
+        } else {
+            allModules
         }
-    })
+    }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp, vertical = 24.dp)
-        ) {
+    BackHandler(onBack = onNavigateBack)
+
+    fun openModuleLink(module: RecomendedModuleItem) {
+        val cleanRepo = module.repo.removePrefix("gitlab:").removePrefix("github:").trim()
+            .removePrefix("https://gitlab.com/").removePrefix("https://github.com/").trimEnd('/')
+        val webUrl = when (module.platform) {
+            HostPlatform.GITHUB -> "https://github.com/$cleanRepo/releases"
+            HostPlatform.GITLAB -> "https://gitlab.com/$cleanRepo/-/releases"
+        }
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Cannot open browser: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .verticalScroll(scrollState)
+            .padding(horizontal = 24.dp, vertical = 24.dp)
+    ) {
         // Header
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            var headerWidthDp by remember { mutableStateOf<Dp?>(null) }
-            val density = LocalDensity.current
-
             Text(
                 text = "Recomended Modules",
                 fontFamily = GoogleSansFlex,
                 fontWeight = FontWeight.Medium,
                 fontSize = 28.sp,
                 color = Color.White,
-                textDecoration = TextDecoration.Underline,
-                modifier = Modifier.onGloballyPositioned { coordinates ->
-                    headerWidthDp = with(density) { coordinates.size.width.toDp() }
-                }
+                textDecoration = TextDecoration.Underline
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = buildAnnotatedString {
                     withStyle(SpanStyle(color = Color(0xFFE05A67))) { append("Enhance ") }
@@ -378,463 +177,69 @@ fun RecomendedModulesScreen(onNavigateBack: () -> Unit = {}) {
                 fontWeight = FontWeight.Light,
                 fontSize = 14.sp
             )
+        }
 
-            if (isKsudAvailable) {
-                Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-                // Check for Updates Button
-                Surface(
-                    onClick = { checkForRemoteUpdates() },
-                    enabled = !isCheckingUpdates && !isInstalling,
-                    shape = RoundedCornerShape(50),
-                    color = PillBackground,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF33383F)),
-                    modifier = Modifier
-                        .width(headerWidthDp ?: 275.dp)
-                        .height(36.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        if (isCheckingUpdates) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp,
-                                color = PrimaryCyan
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Checking updates...",
-                                fontFamily = GoogleSansFlex,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                        } else {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_restart),
-                                contentDescription = "Check for Updates",
-                                tint = PrimaryCyan,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Check for Updates",
-                                fontFamily = GoogleSansFlex,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 12.sp,
-                                color = TextPrimary
-                            )
-                        }
-                    }
-                }
+        // Module list
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            displayModules.forEach { module ->
+                ModuleRowItem(
+                    module = module,
+                    onClick = { openModuleLink(module) }
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        if (isKsudChecked && !isKsudAvailable) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = CardDark)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = Color(0xFFE05A67),
-                                shape = RoundedCornerShape(50)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "UNSUPPORTED",
-                            fontFamily = GoogleSansFlex,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-
-                    Text(
-                        text = "Environment Unsupported",
-                        fontFamily = GoogleSansFlex,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 16.sp,
-                        color = TextPrimary
-                    )
-
-                    Text(
-                        text = "Recomended Modules is not supported in this environtment. Please use KernelSU forks (Ex: SukiSU, ReSukiSU, KowSU, etc)",
-                        fontFamily = GoogleSansFlex,
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 13.sp,
-                        color = TextSecondary,
-                        lineHeight = 18.sp
-                    )
-                }
-            }
-        } else {
-            // Module list
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-            modulesState.forEach { module ->
-                ModuleRowItem(
-                    module = module,
-                    onActionClick = {
-                        if (module.status == ModuleStatus.REBOOT) {
-                            try {
-                                Toast.makeText(context.applicationContext, "Rebooting device...", Toast.LENGTH_SHORT).show()
-                            } catch (e: Throwable) {}
-                            coroutineScope.launch(Dispatchers.IO) {
-                                rebootDevice()
-                            }
-                            return@ModuleRowItem
-                        }
-                        if (module.status == ModuleStatus.INSTALLED) {
-                            try {
-                                Toast.makeText(context.applicationContext, "${module.title} is already installed", Toast.LENGTH_SHORT).show()
-                            } catch (e: Throwable) {}
-                            return@ModuleRowItem
-                        }
-
-                        // Start Download and Install
-                        coroutineScope.launch {
-                            modulesState = modulesState.map {
-                                if (it.repo == module.repo) it.copy(isBusy = true, progressText = "Preparing...", downloadProgress = 0f) else it
-                            }
-
-                            // If downloadUrl is blank, attempt to resolve it now
-                            var targetUrl = module.downloadUrl
-                            if (targetUrl.isBlank()) {
-                                val (latestTag, url) = withContext(Dispatchers.IO) {
-                                    fetchLatestRelease(module.repo, module.platform)
-                                }
-                                if (url.isNotBlank()) {
-                                    targetUrl = url
-                                    modulesState = modulesState.map {
-                                        if (it.repo == module.repo) it.copy(downloadUrl = url, latestVersion = latestTag.ifBlank { it.latestVersion }) else it
-                                    }
-                                }
-                            }
-
-                            if (targetUrl.isBlank()) {
-                                try {
-                                    Toast.makeText(context.applicationContext, "Could not fetch release URL. Check connection.", Toast.LENGTH_SHORT).show()
-                                } catch (e: Throwable) {}
-                                modulesState = modulesState.map {
-                                    if (it.repo == module.repo) it.copy(isBusy = false, progressText = "") else it
-                                }
-                                return@launch
-                            }
-
-                            consoleOutput = "--- Preparing installation for ${module.title} ---\n"
-                            isInstalling = true
-                            downloadProgress = 0f
-                            downloadProgressText = "Connecting..."
-
-                            val zipFile = withContext(Dispatchers.IO) {
-                                downloadModuleZip(context, targetUrl) { progress, downloaded, total ->
-                                    val pFloat = (progress / 100f).coerceIn(0f, 1f)
-                                    val pText = if (total > 0) {
-                                        "${formatFileSize(downloaded)} / ${formatFileSize(total)} • $progress%"
-                                    } else if (downloaded > 0) {
-                                        "${formatFileSize(downloaded)} • $progress%"
-                                    } else {
-                                        "$progress%"
-                                    }
-
-                                    coroutineScope.launch(Dispatchers.Main) {
-                                        downloadProgress = pFloat
-                                        downloadProgressText = pText
-                                    }
-
-                                    modulesState = modulesState.map {
-                                        if (it.repo == module.repo) it.copy(
-                                            progressText = "$progress%",
-                                            downloadProgress = pFloat
-                                        ) else it
-                                    }
-                                }
-                            }
-
-                            withContext(Dispatchers.Main) {
-                                downloadProgress = null
-                                downloadProgressText = null
-                            }
-
-                            if (zipFile == null || !zipFile.exists()) {
-                                isInstalling = false
-                                consoleOutput = consoleOutput + "\n[!] Download failed or invalid file."
-                                modulesState = modulesState.map {
-                                    if (it.repo == module.repo) it.copy(isBusy = false, progressText = "", downloadProgress = 0f) else it
-                                }
-                                return@launch
-                            }
-
-                            modulesState = modulesState.map {
-                                if (it.repo == module.repo) it.copy(progressText = "Flashing...", downloadProgress = 1f) else it
-                            }
-
-                            consoleOutput = consoleOutput + "\n--- Download Complete (${formatFileSize(zipFile.length())}) ---\n"
-                            consoleOutput = consoleOutput + "- Running module installer via ksud...\n\n"
-
-                            try {
-                                withContext(Dispatchers.IO) {
-                                    flashModuleZip(zipFile) { line ->
-                                        coroutineScope.launch(Dispatchers.Main) {
-                                            consoleOutput = (consoleOutput ?: "") + line + "\n"
-                                        }
-                                    }
-                                }
-                            } finally {
-                                withContext(Dispatchers.IO) {
-                                    try {
-                                        if (zipFile.exists()) {
-                                            zipFile.delete()
-                                        }
-                                        // Root rm cleanup as guaranteed fallback
-                                        SuiKernelIoctl.runCommand("rm -f '${zipFile.absolutePath}'")
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                }
-                            }
-
-                            markModulePendingReboot(context, module.repo)
-                            isInstalling = false
-                            consoleOutput = (consoleOutput ?: "") + "\n\n--- Finished! Please Reboot to activate ---"
-                            modulesState = modulesState.map {
-                                if (it.repo == module.repo) it.copy(status = ModuleStatus.REBOOT, isBusy = false, progressText = "", downloadProgress = 0f) else it
-                            }
-                            loadLocalModules()
-                        }
-                    }
-                )
-            }
-        } // Close modules Column
-    } // Close else branch
-
         Spacer(modifier = Modifier.height(32.dp))
-    } // Close main Column
-
-    // Animated modal for Module Flasher
-    AnimatedVisibility(
-        visible = consoleOutput != null,
-        enter = fadeIn(tween(300)) + slideInVertically(
-            animationSpec = tween(350, easing = FastOutSlowInEasing),
-            initialOffsetY = { it }
-        ),
-        exit = fadeOut(tween(250)) + slideOutVertically(
-            animationSpec = tween(300, easing = FastOutSlowInEasing),
-            targetOffsetY = { it }
-        )
-    ) {
-        ModuleInstallPrompt(
-            title = "Module Install",
-            output = consoleOutput ?: "",
-            isInstalling = isInstalling,
-            downloadProgress = downloadProgress,
-            downloadProgressText = downloadProgressText,
-            onClose = {
-                consoleOutput = null
-                downloadProgress = null
-                downloadProgressText = null
-                modulesState = modulesState.map { it.copy(isBusy = false, progressText = "", downloadProgress = 0f) }
-                loadLocalModules()
-            }
-        )
     }
-} // Close Box
-} // Close RecomendedModulesScreen
+}
 
 @Composable
 fun ModuleRowItem(
     module: RecomendedModuleItem,
-    onActionClick: () -> Unit
+    onClick: () -> Unit
 ) {
-    val animatedProgress by animateFloatAsState(
-        targetValue = module.downloadProgress.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = 250, easing = LinearOutSlowInEasing),
-        label = "DownloadProgress"
-    )
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .clickable { onClick() }
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            // Title row
-            if (module.isBusy && animatedProgress > 0f) {
-                val greenColor = Color(0xFFA1D477)
-                val whiteColor = Color.White
-                
-                // Horizontal brush that transitions from green to white smoothly at current progress point
-                val titleBrush = Brush.horizontalGradient(
-                    0.0f to greenColor,
-                    animatedProgress to greenColor,
-                    animatedProgress to whiteColor,
-                    1.0f to whiteColor
-                )
-
-                val displayTitle = when (module.status) {
-                    ModuleStatus.UPDATE -> "${module.title} - UPDATE"
-                    ModuleStatus.REBOOT -> "${module.title} - REBOOT"
-                    else -> module.title
-                }
-
-                Text(
-                    text = displayTitle,
-                    fontFamily = GoogleSansFlex,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    style = TextStyle(brush = titleBrush)
-                )
-            } else {
-                when (module.status) {
-                    ModuleStatus.UPDATE -> {
-                        Text(
-                            text = buildAnnotatedString {
-                                withStyle(SpanStyle(color = Color.White)) { append(module.title) }
-                                append(" - ")
-                                withStyle(SpanStyle(color = Color(0xFFE05A67))) { append("UPDATE") }
-                            },
-                            fontFamily = GoogleSansFlex,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                    }
-                    ModuleStatus.REBOOT -> {
-                        Text(
-                            text = buildAnnotatedString {
-                                withStyle(SpanStyle(color = Color.White)) { append(module.title) }
-                                append(" - ")
-                                withStyle(SpanStyle(color = Color(0xFFFFF185))) { append("REBOOT") }
-                            },
-                            fontFamily = GoogleSansFlex,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                    }
-                    ModuleStatus.INSTALLED -> {
-                        Text(
-                            text = module.title,
-                            fontFamily = GoogleSansFlex,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            color = Color(0xFFA1D477)
-                        )
-                    }
-                    ModuleStatus.DOWNLOAD -> {
-                        Text(
-                            text = module.title,
-                            fontFamily = GoogleSansFlex,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            color = Color.White
-                        )
-                    }
-                }
-            }
+            Text(
+                text = module.title,
+                fontFamily = GoogleSansFlex,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = Color.White
+            )
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Subtitle
-            val subtitleVersion = if (module.status == ModuleStatus.UPDATE) {
-                "${module.version} → ${module.latestVersion}"
-            } else if (module.version.isNotBlank()) {
-                module.version
-            } else if (module.latestVersion.isNotBlank()) {
-                module.latestVersion
-            } else {
-                ""
-            }
-
-            val versionSuffix = if (subtitleVersion.isNotBlank()) " • $subtitleVersion" else ""
-
             Text(
-                text = buildAnnotatedString {
-                    withStyle(SpanStyle(color = Color.White)) { append("By: ${module.author}") }
-                    if (versionSuffix.isNotBlank()) {
-                        withStyle(SpanStyle(color = Color(0xFF26C6DA))) { append(versionSuffix) }
-                    }
-                    if (module.isBusy && module.progressText.isNotBlank()) {
-                        withStyle(SpanStyle(color = Color(0xFFE05A67))) { append(" [${module.progressText}]") }
-                    }
-                },
+                text = "By: ${module.author}",
                 fontFamily = GoogleSansFlex,
                 fontWeight = FontWeight.Normal,
-                fontSize = 12.sp
+                fontSize = 12.sp,
+                color = Color(0xFF9E9E9E)
             )
         }
 
-        // Action icon button with smooth morph animation
         IconButton(
-            onClick = onActionClick,
-            enabled = !module.isBusy,
+            onClick = onClick,
             modifier = Modifier.size(36.dp)
         ) {
-            AnimatedContent(
-                targetState = module.isBusy to module.status,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(220, delayMillis = 40)) + scaleIn(initialScale = 0.75f, animationSpec = tween(220, delayMillis = 40)))
-                        .togetherWith(fadeOut(animationSpec = tween(140)) + scaleOut(targetScale = 0.75f, animationSpec = tween(140)))
-                },
-                label = "ActionIconAnim"
-            ) { (isBusy, status) ->
-                if (isBusy) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                        color = Color(0xFF26C6DA)
-                    )
-                } else {
-                    when (status) {
-                        ModuleStatus.DOWNLOAD -> {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_download),
-                                contentDescription = "Download ${module.title}",
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-                        ModuleStatus.UPDATE -> {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_download_upd),
-                                contentDescription = "Update ${module.title}",
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-                        ModuleStatus.REBOOT -> {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_restart),
-                                contentDescription = "Reboot for ${module.title}",
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-                        ModuleStatus.INSTALLED -> {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_ok),
-                                contentDescription = "${module.title} Installed",
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-                    }
-                }
-            }
+            Icon(
+                painter = painterResource(id = R.drawable.ic_right_arrow),
+                contentDescription = "Open ${module.title}",
+                tint = Color(0xFF8E95A2),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

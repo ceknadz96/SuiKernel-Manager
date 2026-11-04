@@ -808,7 +808,7 @@ private fun BootConsoleOverlay(
             ExtendedFloatingActionButton(
                 onClick = {
                     scope.launch(Dispatchers.IO) {
-                        rebootDevice()
+                        SuiKernelIoctl.rebootDevice()
                     }
                 },
                 icon = {
