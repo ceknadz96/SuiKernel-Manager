@@ -36,7 +36,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -96,7 +95,6 @@ fun BootImageEditorScreen(onNavigateBack: () -> Unit = {}) {
     var consoleTitle by remember { mutableStateOf("") }
     var consoleOutput by remember { mutableStateOf<String?>(null) }
     var isOperating by remember { mutableStateOf(false) }
-    var canReboot by remember { mutableStateOf(false) }
 
     var showPullConfirmDialog by remember { mutableStateOf(false) }
 
@@ -179,7 +177,6 @@ fun BootImageEditorScreen(onNavigateBack: () -> Unit = {}) {
         consoleTitle = "Pull Boot Partition"
         consoleOutput = ""
         isOperating = true
-        canReboot = false
 
         coroutineScope.launch(Dispatchers.IO) {
             val outDir = File("/sdcard/Download")
@@ -213,7 +210,6 @@ fun BootImageEditorScreen(onNavigateBack: () -> Unit = {}) {
         consoleTitle = "Flash Boot Partition"
         consoleOutput = ""
         isOperating = true
-        canReboot = false
 
         coroutineScope.launch(Dispatchers.IO) {
             val tempImg = File(context.cacheDir, "flash_boot_${System.currentTimeMillis()}.img")
@@ -245,8 +241,7 @@ fun BootImageEditorScreen(onNavigateBack: () -> Unit = {}) {
                 withContext(Dispatchers.Main) {
                     isOperating = false
                     if (exitCode == 0) {
-                        canReboot = true
-                        consoleOutput = (consoleOutput ?: "") + "\n\n--- Flashed Successfully! Please Reboot to activate ---"
+                        consoleOutput = (consoleOutput ?: "") + "\n\n--- Flashed Successfully! Please Reboot the Device ---"
                     } else {
                         consoleOutput = (consoleOutput ?: "") + "\n\n--- Flash failed with code $exitCode ---"
                     }
@@ -263,7 +258,6 @@ fun BootImageEditorScreen(onNavigateBack: () -> Unit = {}) {
         consoleTitle = "AnyKernel Flasher"
         consoleOutput = "=== AnyKernel3 Flasher ===\n"
         isOperating = true
-        canReboot = false
 
         coroutineScope.launch(Dispatchers.IO) {
             val tempZip = File(context.cacheDir, "ak3_${System.currentTimeMillis()}.zip")
@@ -345,8 +339,7 @@ fun BootImageEditorScreen(onNavigateBack: () -> Unit = {}) {
                 withContext(Dispatchers.Main) {
                     isOperating = false
                     if (exitCode == 0) {
-                        canReboot = true
-                        consoleOutput = (consoleOutput ?: "") + "\n\n--- AnyKernel Succeeded! Please Reboot to activate ---"
+                        consoleOutput = (consoleOutput ?: "") + "\n\n--- Flashed Successfully! Please Reboot the Device ---"
                     } else {
                         consoleOutput = (consoleOutput ?: "") + "\n\n--- Flashing failed with exit code $exitCode ---"
                     }
@@ -687,7 +680,6 @@ fun BootImageEditorScreen(onNavigateBack: () -> Unit = {}) {
                 title = consoleTitle,
                 output = consoleOutput ?: "",
                 isOperating = isOperating,
-                canReboot = canReboot,
                 onClose = {
                     if (!isOperating) {
                         consoleOutput = null
@@ -703,11 +695,9 @@ private fun BootConsoleOverlay(
     title: String,
     output: String,
     isOperating: Boolean,
-    canReboot: Boolean,
     onClose: () -> Unit
 ) {
     val scrollState = rememberScrollState()
-    val scope = rememberCoroutineScope()
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseAlpha by infiniteTransition.animateFloat(
@@ -791,44 +781,9 @@ private fun BootConsoleOverlay(
                     text = output,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
-                    color = Color(0xFFE0E0E0),
-                    modifier = Modifier.padding(bottom = if (!isOperating && canReboot) 64.dp else 0.dp)
+                    color = Color(0xFFE0E0E0)
                 )
             }
-        }
-
-        AnimatedVisibility(
-            visible = !isOperating && canReboot,
-            enter = fadeIn(tween(350)) + slideInVertically(initialOffsetY = { it / 2 }) + scaleIn(initialScale = 0.8f),
-            exit = fadeOut(tween(200)) + slideOutVertically { it / 2 } + scaleOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 12.dp, bottom = 12.dp)
-        ) {
-            ExtendedFloatingActionButton(
-                onClick = {
-                    scope.launch(Dispatchers.IO) {
-                        SuiKernelIoctl.rebootDevice()
-                    }
-                },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = "Reboot",
-                        tint = Color.White
-                    )
-                },
-                text = {
-                    Text(
-                        text = "Reboot",
-                        fontFamily = GoogleSansFlex,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White
-                    )
-                },
-                containerColor = PrimaryCyan,
-                contentColor = Color.White
-            )
         }
     }
 }

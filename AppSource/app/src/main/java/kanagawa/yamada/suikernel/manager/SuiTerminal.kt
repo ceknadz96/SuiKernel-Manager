@@ -128,7 +128,7 @@ fun SuiTerminalScreen(onNavigateBack: () -> Unit = {}) {
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val quickCmds = listOf("id", "which ksud", "ksud -V", "ls -la /data/SuiKernel", "cat /proc/version", "clear")
+            val quickCmds = listOf("id", "uname -a", "ls -la /data/SuiKernel", "cat /proc/version", "clear")
             quickCmds.forEach { cmd ->
                 SuggestionChip(
                     onClick = { execute(cmd) },
