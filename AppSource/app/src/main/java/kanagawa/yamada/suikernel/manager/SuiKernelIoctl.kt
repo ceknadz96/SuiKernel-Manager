@@ -41,6 +41,7 @@ object SuiKernelIoctl {
     }
 
     external fun nativeSendIoctl(cmd: Long, arg: Long): Int
+    external fun nativeRunSuCommand(cmd: String): Int
     external fun hasNativeRoot(): Boolean
     external fun nativeElevateThread(): Boolean
     external fun nativeReadProcVersion(): String?
@@ -128,7 +129,7 @@ object SuiKernelIoctl {
     const val CMD_SANDEVISTAN = 0x27B55B18L
     const val CMD_MOONA_ZRAM = 0x3E8B1A4CL
     const val CMD_SUI_ELEVATE_ROOT = 0x53554901L
-    const val SUI_ELEVATE_MAGIC = 0x59414D4144415355L
+    const val SUI_ELEVATE_MAGIC = 0x4B414E4153550000L
 
     private fun executeProcess(shell: String, cmd: String, timeoutSec: Long = 4): Pair<Int, Pair<String, String>> {
         return try {
@@ -182,6 +183,23 @@ object SuiKernelIoctl {
     fun runCommand(cmd: String): Boolean {
         val res = executeProcess("sh", cmd, 4)
         return res.first == 0
+    }
+
+    fun runSuCommand(cmd: String): Boolean {
+        return try {
+            val ret = nativeRunSuCommand(cmd)
+            if (ret == 0) true else runCommand(cmd)
+        } catch (e: Throwable) {
+            runCommand(cmd)
+        }
+    }
+
+    fun rebootDevice() {
+        try {
+            runCommand("/system/bin/reboot")
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
     }
 
     fun runCommandWithOutput(cmd: String): List<String> {

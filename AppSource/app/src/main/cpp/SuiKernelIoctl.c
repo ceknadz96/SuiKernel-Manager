@@ -27,19 +27,25 @@
 #include <errno.h>
 #include <dirent.h>
 #include <signal.h>
+#include <pthread.h>
 
 #define LOG_TAG "SuiKernelIoctl"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 #define CMD_SUI_ELEVATE_ROOT 0x53554901
-#define SUI_ELEVATE_MAGIC 0x59414D4144415355ULL
+#define SUI_ELEVATE_MAGIC 0x4B414E4153550000ULL
+
+struct sui_exec_req {
+    uint64_t magic;
+    char cmd[1024];
+};
 
 // No-op: do not kill processes during startup to prevent restart loop collisions
 static void kill_stale_manager_instances(void) {
 }
 
-// Probe whether the kernel supports Yamada SU without altering thread credentials
+// Probe whether the kernel supports KanaSU without altering thread credentials
 static int probe_kernel_has_sui(void) {
     int fd = open("/dev/null", O_RDWR);
     if (fd < 0) return 0;
@@ -47,10 +53,10 @@ static int probe_kernel_has_sui(void) {
     int ret = ioctl(fd, CMD_SUI_ELEVATE_ROOT, 0ULL);
     int err = errno;
     close(fd);
-    return (ret == -EINVAL || err == EINVAL) ? 1 : 0;
+    return (ret == -EINVAL || err == EINVAL || ret == -EFAULT || err == EFAULT) ? 1 : 0;
 }
 
-// Tries to elevate the calling thread to true root via Yamada SU kernel ioctl
+// Tries to elevate the calling thread to true root via KanaSU kernel ioctl
 static int elevate_thread_if_needed(void) {
     if (getuid() == 0) return 0;
     // Protect the UI thread from having its UID changed.
@@ -101,6 +107,26 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeSendIoctl(JNIEnv *en
     return Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_sendIoctl(env, thiz, cmd, arg);
 }
 
+JNIEXPORT jint JNICALL
+Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeRunSuCommand(JNIEnv *env, jobject thiz, jstring cmd_jstr) {
+    if (!cmd_jstr) return -1;
+    const char *cmd = (*env)->GetStringUTFChars(env, cmd_jstr, NULL);
+    if (!cmd) return -1;
+
+    struct sui_exec_req req;
+    memset(&req, 0, sizeof(req));
+    req.magic = SUI_ELEVATE_MAGIC;
+    strncpy(req.cmd, cmd, sizeof(req.cmd) - 1);
+    (*env)->ReleaseStringUTFChars(env, cmd_jstr, cmd);
+
+    int fd = open("/dev/null", O_RDWR);
+    if (fd < 0) return -1;
+
+    int ret = ioctl(fd, CMD_SUI_ELEVATE_ROOT, (unsigned long)&req);
+    close(fd);
+    return ret;
+}
+
 // Tests whether the kernel supports native root elevation without using fork
 JNIEXPORT jboolean JNICALL
 Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_hasNativeRoot(JNIEnv *env, jobject thiz) {
@@ -110,22 +136,67 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_hasNativeRoot(JNIEnv *env,
     return (ret == 0) ? JNI_TRUE : JNI_FALSE;
 }
 
+struct proc_read_ctx {
+    const char *path;
+    char buf[512];
+    ssize_t n;
+};
+
+static void *proc_read_worker(void *arg) {
+    struct proc_read_ctx *ctx = (struct proc_read_ctx *)arg;
+    elevate_thread_if_needed();
+    int fd = open(ctx->path, O_RDONLY);
+    if (fd >= 0) {
+        ctx->n = read(fd, ctx->buf, sizeof(ctx->buf) - 1);
+        close(fd);
+    }
+    return NULL;
+}
+
+static ssize_t read_proc_file(const char *path, char *out_buf, size_t max_len) {
+    int fd = open(path, O_RDONLY);
+    if (fd >= 0) {
+        ssize_t n = read(fd, out_buf, max_len - 1);
+        close(fd);
+        if (n > 0) return n;
+    }
+
+    if (gettid() != getpid()) {
+        elevate_thread_if_needed();
+        fd = open(path, O_RDONLY);
+        if (fd >= 0) {
+            ssize_t n = read(fd, out_buf, max_len - 1);
+            close(fd);
+            if (n > 0) return n;
+        }
+    } else {
+        // If called from the UI thread, spawn a quick worker pthread to elevate safely
+        struct proc_read_ctx ctx;
+        memset(&ctx, 0, sizeof(ctx));
+        ctx.path = path;
+        ctx.n = -1;
+        pthread_t t;
+        if (pthread_create(&t, NULL, proc_read_worker, &ctx) == 0) {
+            pthread_join(t, NULL);
+            if (ctx.n > 0) {
+                size_t copy_len = ((size_t)ctx.n < max_len - 1) ? (size_t)ctx.n : max_len - 1;
+                memcpy(out_buf, ctx.buf, copy_len);
+                out_buf[copy_len] = '\0';
+                return (ssize_t)copy_len;
+            }
+        }
+    }
+    return -1;
+}
+
 // Direct reading of /proc/version
 JNIEXPORT jstring JNICALL
 Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeReadProcVersion(JNIEnv *env, jobject thiz) {
-    int fd = open("/proc/version", O_RDONLY);
-    if (fd < 0) {
-        elevate_thread_if_needed();
-        fd = open("/proc/version", O_RDONLY);
-    }
-    if (fd >= 0) {
-        char buf[512] = {0};
-        ssize_t n = read(fd, buf, sizeof(buf) - 1);
-        close(fd);
-        if (n > 0) {
-            buf[n] = '\0';
-            return (*env)->NewStringUTF(env, buf);
-        }
+    char buf[512] = {0};
+    ssize_t n = read_proc_file("/proc/version", buf, sizeof(buf));
+    if (n > 0) {
+        buf[n] = '\0';
+        return (*env)->NewStringUTF(env, buf);
     }
     return NULL;
 }
@@ -133,19 +204,11 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeReadProcVersion(JNIE
 // Direct reading of /proc/suikernel_manager_version
 JNIEXPORT jstring JNICALL
 Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeReadManagerVersion(JNIEnv *env, jobject thiz) {
-    int fd = open("/proc/suikernel_manager_version", O_RDONLY);
-    if (fd < 0) {
-        elevate_thread_if_needed();
-        fd = open("/proc/suikernel_manager_version", O_RDONLY);
-    }
-    if (fd >= 0) {
-        char buf[64] = {0};
-        ssize_t n = read(fd, buf, sizeof(buf) - 1);
-        close(fd);
-        if (n > 0) {
-            buf[n] = '\0';
-            return (*env)->NewStringUTF(env, buf);
-        }
+    char buf[64] = {0};
+    ssize_t n = read_proc_file("/proc/suikernel_manager_version", buf, sizeof(buf));
+    if (n > 0) {
+        buf[n] = '\0';
+        return (*env)->NewStringUTF(env, buf);
     }
     return NULL;
 }

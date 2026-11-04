@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
             }
         })
 
-        // Warm up Yamada SU root session & config cache in background
+        // Warm up KanaSU root session & config cache in background
         Thread {
             SuiKernelIoctl.isNativeRootSupported()
             SuiKernelIoctl.readStorage()

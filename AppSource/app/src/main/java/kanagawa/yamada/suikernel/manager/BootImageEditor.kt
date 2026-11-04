@@ -808,11 +808,7 @@ private fun BootConsoleOverlay(
             ExtendedFloatingActionButton(
                 onClick = {
                     scope.launch(Dispatchers.IO) {
-                        try {
-                            SuiKernelIoctl.runCommand("/system/bin/svc power reboot || /system/bin/reboot")
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
+                        rebootDevice()
                     }
                 },
                 icon = {

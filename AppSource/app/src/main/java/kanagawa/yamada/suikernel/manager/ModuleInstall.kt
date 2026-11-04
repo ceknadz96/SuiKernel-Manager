@@ -1019,11 +1019,7 @@ fun flashModuleZip(zipFile: File, onLine: (String) -> Unit) {
 }
 
 fun rebootDevice() {
-    try {
-        SuiKernelIoctl.runCommand("/system/bin/svc power reboot || /system/bin/reboot")
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
+    SuiKernelIoctl.rebootDevice()
 }
 
 // ----------------- MODULE REBOOT TRACKING HELPERS -----------------
