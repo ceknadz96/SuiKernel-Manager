@@ -131,6 +131,11 @@ object SuiKernelIoctl {
     const val CMD_SUI_ELEVATE_ROOT = 0x53554901L
     const val SUI_ELEVATE_MAGIC = 0x4B414E4153550000L
 
+    private val DEFAULT_ENV = arrayOf(
+        "PATH=/data/adb:/data/adb/ksu/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin:/system/bin",
+        "BOOTMODE=true"
+    )
+
     private fun executeProcess(shell: String, cmd: String, timeoutSec: Long = 4): Pair<Int, Pair<String, String>> {
         return try {
             try {
@@ -139,7 +144,7 @@ object SuiKernelIoctl {
                 // Ignore if JNI not loaded
             }
             val shellPath = if (shell == "sh") "/system/bin/sh" else shell
-            val process = Runtime.getRuntime().exec(arrayOf(shellPath, "-c", cmd))
+            val process = Runtime.getRuntime().exec(arrayOf(shellPath, "-c", cmd), DEFAULT_ENV)
             try {
                 process.outputStream.close()
             } catch (e: Exception) {
