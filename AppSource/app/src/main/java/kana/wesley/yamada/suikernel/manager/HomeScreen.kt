@@ -1,6 +1,6 @@
 /*
  * SuiKernel Manager
- * Copyright (C) 2026 Kanagawa Yamada
+ * Copyright (C) 2026 Kana Wesley Yamada
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package kanagawa.yamada.suikernel.manager
+package kana.wesley.yamada.suikernel.manager
 
 import android.app.WallpaperManager
 import android.graphics.Bitmap
@@ -48,7 +48,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kanagawa.yamada.suikernel.manager.ui.theme.*
+import kana.wesley.yamada.suikernel.manager.ui.theme.*
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -360,7 +360,7 @@ fun DashboardScreen(
                     modifier = Modifier.padding(top = 4.dp)
                 ) {
                     Text(
-                        text = "By: Kanagawa Yamada",
+                        text = "By: Kana Wesley Yamada",
                         fontFamily = GoogleSansFlex,
                         fontWeight = FontWeight.Light,
                         fontSize = 14.sp,
@@ -469,7 +469,7 @@ fun DashboardScreen(
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "Kanagawa Yamada",
+                                text = "Kana Wesley Yamada",
                                 fontFamily = GoogleSansFlex,
                                 fontSize = 10.sp,
                                 color = TextPrimary

@@ -1,6 +1,6 @@
 /*
  * SuiKernel Manager
- * Copyright (C) 2026 Kanagawa Yamada
+ * Copyright (C) 2026 Kana Wesley Yamada
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package kanagawa.yamada.suikernel.manager
+package kana.wesley.yamada.suikernel.manager
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -34,7 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.*
 import androidx.core.view.WindowCompat
-import kanagawa.yamada.suikernel.manager.ui.theme.SuiKernelManagerTheme
+import kana.wesley.yamada.suikernel.manager.ui.theme.SuiKernelManagerTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

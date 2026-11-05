@@ -1,6 +1,6 @@
 /*
  * SuiKernel Manager
- * Copyright (C) 2026 Kanagawa Yamada
+ * Copyright (C) 2026 Kana Wesley Yamada
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,14 +16,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package kanagawa.yamada.suikernel.manager.ui.theme
+package kana.wesley.yamada.suikernel.manager
 
-import androidx.compose.ui.graphics.Color
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.util.Log
 
-val BackgroundDark = Color(0xFF191B1C)
-val CardDark = Color(0xFF262A2E)
-val PrimaryCyan = Color(0xFF009AA6)
-val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFB0B3B8)
-val AccentRed = Color(0xFFE53935)
-val PillBackground = Color(0xFF1E2124)
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            Log.d("SuiKernel", "Boot completed, applying SuiKernel settings...")
+            SuiKernelIoctl.applyAllSettings(context)
+        }
+    }
+}

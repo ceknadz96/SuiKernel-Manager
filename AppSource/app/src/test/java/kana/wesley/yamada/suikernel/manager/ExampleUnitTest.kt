@@ -1,6 +1,6 @@
 /*
  * SuiKernel Manager
- * Copyright (C) 2026 Kanagawa Yamada
+ * Copyright (C) 2026 Kana Wesley Yamada
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,18 +16,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package kanagawa.yamada.suikernel.manager
+package kana.wesley.yamada.suikernel.manager
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.util.Log
+import org.junit.Test
 
-class BootReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            Log.d("SuiKernel", "Boot completed, applying SuiKernel settings...")
-            SuiKernelIoctl.applyAllSettings(context)
-        }
+import org.junit.Assert.*
+
+/**
+ * Example local unit test, which will execute on the development machine (host).
+ *
+ * See [testing documentation](http://d.android.com/tools/testing).
+ */
+class ExampleUnitTest {
+    @Test
+    fun addition_isCorrect() {
+        assertEquals(4, 2 + 2)
     }
 }

@@ -1,6 +1,6 @@
 /*
  * SuiKernel Manager
- * Copyright (C) 2026 Kanagawa Yamada
+ * Copyright (C) 2026 Kana Wesley Yamada
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package kanagawa.yamada.suikernel.manager
+package kana.wesley.yamada.suikernel.manager
 
 import android.content.Context
 import android.media.MediaScannerConnection
@@ -54,11 +54,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kanagawa.yamada.suikernel.manager.ui.theme.CardDark
-import kanagawa.yamada.suikernel.manager.ui.theme.GoogleSansFlex
-import kanagawa.yamada.suikernel.manager.ui.theme.PrimaryCyan
-import kanagawa.yamada.suikernel.manager.ui.theme.TextPrimary
-import kanagawa.yamada.suikernel.manager.ui.theme.TextSecondary
+import kana.wesley.yamada.suikernel.manager.ui.theme.CardDark
+import kana.wesley.yamada.suikernel.manager.ui.theme.GoogleSansFlex
+import kana.wesley.yamada.suikernel.manager.ui.theme.PrimaryCyan
+import kana.wesley.yamada.suikernel.manager.ui.theme.TextPrimary
+import kana.wesley.yamada.suikernel.manager.ui.theme.TextSecondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

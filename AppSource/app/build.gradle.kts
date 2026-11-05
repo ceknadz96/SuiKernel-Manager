@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "kanagawa.yamada.suikernel.manager"
+    namespace = "kana.wesley.yamada.suikernel.manager"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "kanagawa.yamada.suikernel.manager"
+        applicationId = "kana.wesley.yamada.suikernel.manager"
         minSdk = 29
         targetSdk = 37
         versionCode = 2

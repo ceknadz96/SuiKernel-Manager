@@ -1,6 +1,6 @@
 /*
  * SuiKernel Manager
- * Copyright (C) 2026 Kanagawa Yamada
+ * Copyright (C) 2026 Kana Wesley Yamada
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -72,19 +72,19 @@ static int elevate_thread_if_needed(void) {
 }
 
 JNIEXPORT jboolean JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeElevateThread(JNIEnv *env, jobject thiz) {
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_nativeElevateThread(JNIEnv *env, jobject thiz) {
     int ret = elevate_thread_if_needed();
     return (ret == 0) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeKillStaleInstances(JNIEnv *env, jobject thiz) {
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_nativeKillStaleInstances(JNIEnv *env, jobject thiz) {
     elevate_thread_if_needed();
     kill_stale_manager_instances();
 }
 
 JNIEXPORT jint JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_sendIoctl(JNIEnv *env, jobject thiz, jlong cmd, jlong arg) {
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_sendIoctl(JNIEnv *env, jobject thiz, jlong cmd, jlong arg) {
     int fd = open("/dev/null", O_RDWR);
     if (fd < 0) {
         LOGE("Failed to open /dev/null: %d", errno);
@@ -103,12 +103,12 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_sendIoctl(JNIEnv *env, job
 }
 
 JNIEXPORT jint JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeSendIoctl(JNIEnv *env, jobject thiz, jlong cmd, jlong arg) {
-    return Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_sendIoctl(env, thiz, cmd, arg);
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_nativeSendIoctl(JNIEnv *env, jobject thiz, jlong cmd, jlong arg) {
+    return Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_sendIoctl(env, thiz, cmd, arg);
 }
 
 JNIEXPORT jint JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeRunSuCommand(JNIEnv *env, jobject thiz, jstring cmd_jstr) {
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_nativeRunSuCommand(JNIEnv *env, jobject thiz, jstring cmd_jstr) {
     if (!cmd_jstr) return -1;
     const char *cmd = (*env)->GetStringUTFChars(env, cmd_jstr, NULL);
     if (!cmd) return -1;
@@ -129,7 +129,7 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeRunSuCommand(JNIEnv 
 
 // Tests whether the kernel supports native root elevation without using fork
 JNIEXPORT jboolean JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_hasNativeRoot(JNIEnv *env, jobject thiz) {
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_hasNativeRoot(JNIEnv *env, jobject thiz) {
     if (getuid() == 0) return JNI_TRUE;
     if (probe_kernel_has_sui()) return JNI_TRUE;
     int ret = elevate_thread_if_needed();
@@ -191,7 +191,7 @@ static ssize_t read_proc_file(const char *path, char *out_buf, size_t max_len) {
 
 // Direct reading of /proc/version
 JNIEXPORT jstring JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeReadProcVersion(JNIEnv *env, jobject thiz) {
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_nativeReadProcVersion(JNIEnv *env, jobject thiz) {
     char buf[512] = {0};
     ssize_t n = read_proc_file("/proc/version", buf, sizeof(buf));
     if (n > 0) {
@@ -203,7 +203,7 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeReadProcVersion(JNIE
 
 // Direct reading of /proc/suikernel_manager_version
 JNIEXPORT jstring JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeReadManagerVersion(JNIEnv *env, jobject thiz) {
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_nativeReadManagerVersion(JNIEnv *env, jobject thiz) {
     char buf[64] = {0};
     ssize_t n = read_proc_file("/proc/suikernel_manager_version", buf, sizeof(buf));
     if (n > 0) {
@@ -215,7 +215,7 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeReadManagerVersion(J
 
 // Writes a single configuration file directly to /data/SuiKernel/<feature>
 JNIEXPORT jboolean JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeWriteFeature(
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_nativeWriteFeature(
     JNIEnv *env, jobject thiz, jstring name_jstr, jstring val_jstr) {
     if (!name_jstr || !val_jstr) return JNI_FALSE;
     const char *name = (*env)->GetStringUTFChars(env, name_jstr, NULL);
@@ -248,7 +248,7 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeWriteFeature(
 
 // Writes all storage files directly to /data/SuiKernel/
 JNIEXPORT jboolean JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeWriteStorage(
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_nativeWriteStorage(
     JNIEnv *env, jobject thiz,
     jstring anya, jstring touch_boost, jstring inaho, jstring tenebrion,
     jstring airani, jstring sandevistan, jstring moona, jstring sparxie, jstring swappiness) {
@@ -300,7 +300,7 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeWriteStorage(
 
 // Reads configuration files directly from /data/SuiKernel/
 JNIEXPORT jstring JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelIoctl_nativeReadStorage(JNIEnv *env, jobject thiz) {
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelIoctl_nativeReadStorage(JNIEnv *env, jobject thiz) {
     elevate_thread_if_needed();
     const char *files[] = {"anya_thermal", "touch_boost", "inaho", "tenebrion", "airani", "sandevistan", "moona_zram", "sparxie", "swappiness"};
     char buf[2048] = {0};

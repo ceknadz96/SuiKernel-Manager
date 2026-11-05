@@ -1,6 +1,6 @@
 /*
  * SuiKernel Manager
- * Copyright (C) 2026 Kanagawa Yamada
+ * Copyright (C) 2026 Kana Wesley Yamada
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,20 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package kanagawa.yamada.suikernel.manager
+package kana.wesley.yamada.suikernel.manager.ui.theme
 
-import org.junit.Test
+import androidx.compose.ui.graphics.Color
 
-import org.junit.Assert.*
-
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
-class ExampleUnitTest {
-    @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
-    }
-}
+val BackgroundDark = Color(0xFF191B1C)
+val CardDark = Color(0xFF262A2E)
+val PrimaryCyan = Color(0xFF009AA6)
+val TextPrimary = Color(0xFFFFFFFF)
+val TextSecondary = Color(0xFFB0B3B8)
+val AccentRed = Color(0xFFE53935)
+val PillBackground = Color(0xFF1E2124)

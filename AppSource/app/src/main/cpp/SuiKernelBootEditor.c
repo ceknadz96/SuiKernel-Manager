@@ -1,6 +1,6 @@
 /*
  * SuiKernel Manager
- * Copyright (C) 2026 Kanagawa Yamada
+ * Copyright (C) 2026 Kana Wesley Yamada
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -149,7 +149,7 @@ static int find_boot_partition(char *out_path, size_t max_len) {
 }
 
 JNIEXPORT jstring JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelBootEditor_nativeGetActiveSlot(
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelBootEditor_nativeGetActiveSlot(
     JNIEnv *env, jobject thiz) {
     char slot[PROP_VALUE_MAX] = {0};
     __system_property_get("ro.boot.slot_suffix", slot);
@@ -157,7 +157,7 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelBootEditor_nativeGetActiveSlot(
 }
 
 JNIEXPORT jstring JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelBootEditor_nativeFindBootPartition(
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelBootEditor_nativeFindBootPartition(
     JNIEnv *env, jobject thiz) {
     elevate_thread_if_needed();
 
@@ -169,7 +169,7 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelBootEditor_nativeFindBootPartiti
 }
 
 JNIEXPORT jint JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelBootEditor_nativePullBoot(
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelBootEditor_nativePullBoot(
     JNIEnv *env, jobject thiz, jstring target_path_jstr, jobject callback) {
 
     jclass cb_class = callback ? (*env)->GetObjectClass(env, callback) : NULL;
@@ -298,7 +298,7 @@ Java_kanagawa_yamada_suikernel_manager_SuiKernelBootEditor_nativePullBoot(
 }
 
 JNIEXPORT jint JNICALL
-Java_kanagawa_yamada_suikernel_manager_SuiKernelBootEditor_nativeFlashBoot(
+Java_kana_wesley_yamada_suikernel_manager_SuiKernelBootEditor_nativeFlashBoot(
     JNIEnv *env, jobject thiz, jstring source_path_jstr, jobject callback) {
 
     jclass cb_class = callback ? (*env)->GetObjectClass(env, callback) : NULL;
